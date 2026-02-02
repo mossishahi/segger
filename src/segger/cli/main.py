@@ -95,6 +95,11 @@ def segment(
         group=group_io,
     )] = registry.get_default("save_anndata"),
     
+    save_cell_masks: Annotated[bool, registry.get_parameter(
+        "save_cell_masks",
+        group=group_io,
+    )] = registry.get_default("save_cell_masks"),
+    
     # Cell Representation
     node_representation_dim: Annotated[int, Parameter(
         help="Number of dimensions used to represent each node type.",
@@ -553,6 +558,7 @@ def segment(
         fragment_mode=fragment_mode,
         fragment_min_transcripts=fragment_min_transcripts,
         fragment_similarity_threshold=fragment_similarity_threshold,
+        save_cell_masks=save_cell_masks,
     )
     trainer = Trainer(
         logger=logger,
