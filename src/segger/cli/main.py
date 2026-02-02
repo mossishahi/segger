@@ -90,7 +90,11 @@ def segment(
         validator=validators.Path(exists=True, dir_okay=True),
     )] = registry.get_default("output_directory"),
     
-
+    save_anndata: Annotated[bool, registry.get_parameter(
+        "save_anndata",
+        group=group_io,
+    )] = registry.get_default("save_anndata"),
+    
     # Cell Representation
     node_representation_dim: Annotated[int, Parameter(
         help="Number of dimensions used to represent each node type.",
@@ -136,7 +140,6 @@ def segment(
         group=group_nodes,
     )] = registry.get_default("genes_clusters_resolution"),
 
-
     # Transcript-Transcript Graph
     transcripts_max_k: Annotated[int, registry.get_parameter(
         "transcripts_graph_max_k",  
@@ -159,6 +162,12 @@ def segment(
             group=group_prediction,
         )
     ] = registry.get_default("prediction_graph_mode"),
+
+    prediction_expansion_ratio: Annotated[float, registry.get_parameter(
+        "prediction_graph_buffer_ratio",
+        validator=validators.Number(gt=0),
+        group=group_prediction,
+    )] = registry.get_default("prediction_graph_buffer_ratio"),
 
     prediction_max_k: Annotated[int | None, registry.get_parameter(
         "prediction_graph_max_k",
@@ -537,7 +546,9 @@ def segment(
     from lightning.pytorch import Trainer
     logger = CSVLogger(output_directory)
     writer = ISTSegmentationWriter(
-        output_directory,
+        
+        output_directory=output_directory,
+        save_anndata=save_anndata,
         min_similarity=min_similarity,
         fragment_mode=fragment_mode,
         fragment_min_transcripts=fragment_min_transcripts,

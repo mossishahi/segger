@@ -10,6 +10,7 @@ import torch
 from ..io import TrainingTranscriptFields, TrainingBoundaryFields
 from ..prediction import apply_fragment_mode
 from . import ISTDataModule
+from .utils.anndata import anndata_from_transcripts
 
 
 def threshold(x):
@@ -38,6 +39,7 @@ class ISTSegmentationWriter(BasePredictionWriter):
     def __init__(
         self,
         output_directory: Path,
+        save_anndata: bool = True,
         min_similarity: float | None = None,
         fragment_mode: bool = False,
         fragment_min_transcripts: int = 5,
@@ -49,6 +51,7 @@ class ISTSegmentationWriter(BasePredictionWriter):
         self.fragment_mode = fragment_mode
         self.fragment_min_transcripts = fragment_min_transcripts
         self.fragment_similarity_threshold = fragment_similarity_threshold
+        self.save_anndata = save_anndata
 
     def write_on_epoch_end(
         self,
@@ -298,3 +301,39 @@ class ISTSegmentationWriter(BasePredictionWriter):
             transcript_id_column=tx_fields.row_index,
             similarity_column="similarity",
         )
+
+        # Optional: save AnnData
+        if self.save_anndata:
+            tx = trainer.datamodule.tx
+            transcripts = (
+                segmentation
+                .join(
+                    tx.select([
+                        tx_fields.row_index,
+                        tx_fields.x,
+                        tx_fields.y,
+                        tx_fields.feature,
+                    ]),
+                    on=tx_fields.row_index,
+                    how='left',
+                )
+                .rename({tx_fields.feature: "segger_gene"})
+                .select([
+                    tx_fields.row_index,
+                    "segger_gene",
+                    "segger_cell_id",
+                    "segger_similarity",
+                    "similarity_threshold",
+                    tx_fields.x,
+                    tx_fields.y,
+                ])
+            )
+
+            adata = anndata_from_transcripts(
+                transcripts,
+                feature_column="segger_gene",
+                cell_id_column="segger_cell_id",
+                score_column="segger_similarity",
+                coordinate_columns=[tx_fields.x, tx_fields.y],
+            )
+            adata.write_h5ad(self.output_directory / 'segger_anndata.h5ad')
